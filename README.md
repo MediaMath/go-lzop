@@ -7,7 +7,7 @@ To get:
 go get github.com/MediaMath/go-lzop
 ````
 
-#### Usage:
+#### Usage
 You can use the library with either your own compiled LZO lib from source, or use https://github.com/rasky/go-lzo.
 In this example I'm using the rasky lzoCompress1X.  It's important you only pass our lzop function some iteration of 1x1 compression.  If you want to work out the values for 1x999 or some other inbetween you will have to fork the repo, and use different constants for the binary values written to the header packer.  Writing a level 9 compression while header packing level 1 compression obviously isn't a great idea.
 ````
@@ -18,10 +18,13 @@ filename := "file.txt"
 someString := "Hello I am a string"
 data, err := CompressData(fileCreationTime, filename, []byte(someString), lzo.Compress1X)
 ````
-data in this example should be able to be directly written to disk, and decompressed via lzop -d -f file.txt
+data in this example should be able to be directly written to disk, and decompressed via
+````
+lzop -d -f file.txt
+````
 
 #### Warning
-Data that's created with this packer seems to slightly differ as files grow in size.  Files compressed to 229392890 bytes (219MB) with lzop might be 229392**000** bytes with this lib.  LZOP is adding or moving bytes on large files that I haven't found, but it doesn't seem to impact the overall outcome of the data.  If you lzop with built LZO source, and LZO compress with this lib using the same built source, the .lzo produced might differ slightly in size, but contains the same data during decompression.  Diff will return no result on the files.
+Data that's created with this packer seems to slightly differ as files grow in size.  Files compressed to 229392890 bytes (219MB) with lzop **might** be 229392**000** bytes with this lib.  LZOP is adding or moving bytes on large files that I haven't found, but it doesn't seem to impact the overall outcome of the data.  If you lzop with built LZO source, and LZO compress with this lib using the same built source, the .lzo produced might differ slightly in size, but contains the same data during decompression.  Diff will return no result on the files.
 
  
 #### Go Test
