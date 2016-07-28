@@ -43,7 +43,7 @@ hexdump -C xbG7k1TvFZ.txt.lzo
 ````
 Hexdump result of the same file after running through go-lzop and compressed using the LZO 1x1 libs
 `````
- hexdump -C xbG7k1TvFZ.txt.lzo1
+hexdump -C xbG7k1TvFZ.txt.lzo
 00000000  89 4c 5a 4f 00 0d 0a 1a  0a 10 30 20 80 09 40 02  |.LZO......0 ..@.|
 00000010  01 03 00 00 01 00 00 81  b4 57 9a 4a 84 00 00 00  |.........W.J....|
 00000020  00 0e 78 62 47 37 6b 31  54 76 46 5a 2e 74 78 74  |..xbG7k1TvFZ.txt|
@@ -51,7 +51,13 @@ Hexdump result of the same file after running through go-lzop and compressed usi
 00000040  64 61 74 61 00 00 00 00                           |data....|
 00000048
 ````
-
+All the way back
+`````
+lzop -d -f xbG7k1TvFZ.txt.lzo
+hexdump -C xbG7k1TvFZ.txt
+00000000  64 61 74 61                                       |data|
+00000004
+`````
 
 #### Warning
 Data that's created with this packer seems to slightly differ as files grow in size.  Files compressed to 229392890 bytes (219MB) with lzop **might** be 229392**000** bytes with this lib.  LZOP is adding or moving bytes on large files that I haven't found, but it doesn't seem to impact the overall outcome of the data.  If you lzop with built LZO source, and LZO compress with this lib using the same built source, the .lzo produced might differ slightly in size, but contains the same data during decompression.  Diff will return no result on the files.
