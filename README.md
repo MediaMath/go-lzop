@@ -1,3 +1,43 @@
+### go-lzop: A wrapper for LZO compression that works with go-lzo libraries to create lzop compatible files.
+
+#### Go library
+
+To get:
+````
+go get github.com/MediaMath/go-lzop
+````
+
+### Usage:
+You can use the library with either your own compiled LZO lib from source, or use https://github.com/rasky/go-lzo.
+In this example I'm using the rasky lzoCompress1X.  It's important you only pass our lzop function some iteration of 1x1 compression.  If you want to work out the values for 1x999 or some other inbetween you will have to fork the repo, and use different constants for the binary values written to the header packer.  Writing a level 9 compression while header packing level 1 compression obviously isn't a great idea.
+````
+import "github.com/MediaMath/go-lzop"
+
+fileCreationTime := time.Now().Unix()
+filename := "file.txt"
+someString := "Hello I am a string"
+data, err := CompressData(fileCreationTime, filename, []byte(someString), lzo.Compress1X)
+````
+data in this example should be able to be directly written to disk, and decompressed via lzop -d -f file.txt
+
+#### Warning
+Data that's created with this packer seems to slightly differ as files grow in size.  Files compressed to 229392890 bytes (219MB) with lzop might be 229392**000** bytes with this lib.  LZOP is adding or moving bytes on large files that I haven't found, but it doesn't seem to impact the overall outcome of the data.  If you lzop with built LZO source, and LZO compress with this lib using the same built source, the .lzo produced might differ slightly in size, but contains the same data during decompression.  Diff will return no result on the files.
+
+ 
+#### Go Test
+Tests assume you have lzop installed if not
+````
+sudo apt-get install lzop
+````
+Then
+````
+go get github.com/dchest/uniuri
+cd lzop
+go test
+````
+
+
+#### Background information on LZOP header packing which go-lzop follows
 ````
 //packingOrder Is the exact order and type length of everything needed to make a LZOP looking header.
 //This struct defines the layout of the data and the types they represent, but isn't used directly
@@ -31,14 +71,14 @@ type packingOrder struct {
 
 	//After the adler32 checksum there is another checksum + data addition that occurs **EVERY** blocksize rotation
 
-	*/As defined in LZOP
+	/*As defined in LZOP
 	  #if defined(ACC_OS_DOS16) && !defined(ACC_ARCH_I086PM)
 	  #  define BLOCK_SIZE        (128*1024l)
 	  #else
 	  #  define BLOCK_SIZE        (256*1024l)
 	  #endif
 	  #define MAX_BLOCK_SIZE      (64*1024l*1024l)        
-    /*
+    */
 
 	// You write the three values below (both sizes + checksum) every rotation
 
