@@ -20,7 +20,7 @@ data, err := CompressData(fileCreationTime, filename, []byte(someString), lzo.Co
 ````
 data in this example should be able to be directly written to disk, and decompressed via
 ````
-lzop -d -f file.txt
+lzop -d -f file.txt.lzo
 ````
 
 #### Warning
