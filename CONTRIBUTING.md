@@ -1,5 +1,5 @@
 # License
-By contributing you agree that your contributions will be licensed under the govent project [license](LICENSE).
+By contributing you agree that your contributions will be licensed under the go-lzop project [license](LICENSE).
 
 # Code Style
 
