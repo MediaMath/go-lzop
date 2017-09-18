@@ -5,6 +5,7 @@ package lzop
 // license that can be found in the LICENSE file.
 
 import (
+	"bytes"
 	"io/ioutil"
 	"log"
 	"os"
@@ -20,13 +21,11 @@ func init() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 }
 
-func getData(size int) string {
-	return uniuri.NewLen(size)
+func getData(size int) []byte {
+	return []byte(uniuri.NewLen(size))
 }
 
-func testData(str string) {
-
-	log.Printf("Testing size :%d", len(str))
+func testData(input []byte, compressBuffer, endBuffer *bytes.Buffer) {
 
 	filename := uniuri.NewLen(10) + ".txt"
 	lzopFileName := filename + ".lzo"
@@ -34,9 +33,18 @@ func testData(str string) {
 	defer os.Remove(filename)
 	defer os.Remove(lzopFileName)
 
-	data, err := CompressData(time.Now().Unix(), filename,
-		[]byte(str),
-		lzo.Compress1X)
+	var data []byte
+	var err error
+
+	if compressBuffer == nil || endBuffer == nil {
+		data, err = CompressData(time.Now().Unix(), filename,
+			input,
+			lzo.Compress1X)
+	} else {
+		data, err = CompressDataWithBuffers(compressBuffer, endBuffer, time.Now().Unix(), filename,
+			input,
+			lzo.Compress1X)
+	}
 
 	if err != nil {
 		log.Fatal(err)
@@ -77,22 +85,65 @@ func testData(str string) {
 		log.Fatal(err)
 	}
 
-	if string(out) != string(str) || len(out) != len(str) {
+	if string(out) != string(input) || len(out) != len(input) {
 		log.Fatal("Files not the same")
 	}
 
 }
 
 func TestRandomDataSizes(t *testing.T) {
-	testData(getData(256))
-	testData(getData(512))
-	testData(getData(1024))
-	testData(getData(256 * 1024))
-	testData(getData(256 * 1024 * 2))
-	testData(getData(256 * 1024 * 4))
-	testData(getData(256 * 1024 * 8))
-	testData(getData(256 * 1024 * 16))
-	testData(getData(256 * 1024 * 32))
-	testData(getData(256 * 1024 * 64))
-	testData(getData(256 * 1024 * 128))
+	testData(getData(256), nil, nil)
+	testData(getData(512), nil, nil)
+	testData(getData(1024), nil, nil)
+	testData(getData(256*1024), nil, nil)
+	testData(getData(256*1024*2), nil, nil)
+	testData(getData(256*1024*4), nil, nil)
+	testData(getData(256*1024*8), nil, nil)
+	testData(getData(256*1024*16), nil, nil)
+	testData(getData(256*1024*32), nil, nil)
+	testData(getData(256*1024*64), nil, nil)
+	testData(getData(256*1024*128), nil, nil)
+}
+
+func TestRandomDataSizesWithPreAllocatedBuffers(t *testing.T) {
+	b1 := bytes.NewBuffer(make([]byte, 0, 256*1024*128))
+	b2 := bytes.NewBuffer(make([]byte, 0, 256*1024*128))
+
+	testData(getData(256), b1, b2)
+	testData(getData(512), b1, b2)
+	testData(getData(1024), b1, b2)
+	testData(getData(256*1024), b1, b2)
+	testData(getData(256*1024*2), b1, b2)
+	testData(getData(256*1024*4), b1, b2)
+	testData(getData(256*1024*8), b1, b2)
+	testData(getData(256*1024*16), b1, b2)
+	testData(getData(256*1024*32), b1, b2)
+	testData(getData(256*1024*64), b1, b2)
+	testData(getData(256*1024*128), b1, b2)
+}
+
+func BenchmarkAlloc(b *testing.B) {
+	d := getData(256 * 1024 * 128)
+	now := time.Now().Unix()
+	fn := "file"
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		CompressData(now, fn,
+			d,
+			lzo.Compress1X)
+	}
+}
+
+func BenchmarkPreAlloc(b *testing.B) {
+	b1 := bytes.NewBuffer(make([]byte, 0, 256*1024*128))
+	b2 := bytes.NewBuffer(make([]byte, 0, 256*1024*128))
+	d := getData(256 * 1024 * 128)
+	now := time.Now().Unix()
+	fn := "file"
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		CompressDataWithBuffers(b1, b2, now, fn,
+			d,
+			lzo.Compress1X)
+	}
 }
