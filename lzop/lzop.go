@@ -23,10 +23,14 @@ const (
 var lzopMagic = []byte{0x89, 0x4c, 0x5a, 0x4f, 0x00, 0x0d, 0x0a, 0x1a, 0x0a}
 var endBytes = []byte{0x00, 0x00, 0x00, 0x00}
 
-func writeData(buff *bytes.Buffer, fileTime int64, fileName string, data []byte,
-	compressionFunction func([]byte) []byte) error {
+//WriteHeader Writes only the header start of an lzop file
+func WriteHeader(buff *bytes.Buffer, fileTime int64, fileName string) error {
+	//this is started at the file but not included in the checksum
+	//hence bytes[len(lzopMagic):]
+	//if you include this you will get invalid checksum error on lzop files
+	err := binary.Write(buff, binary.BigEndian, lzopMagic)
 
-	err := binary.Write(buff, binary.BigEndian, uint16(version))
+	err = binary.Write(buff, binary.BigEndian, uint16(version))
 	err = binary.Write(buff, binary.BigEndian, uint16(libVersion))
 	err = binary.Write(buff, binary.BigEndian, uint16(versionForExtract))
 	err = binary.Write(buff, binary.BigEndian, uint8(method))
@@ -37,12 +41,18 @@ func writeData(buff *bytes.Buffer, fileTime int64, fileName string, data []byte,
 	err = binary.Write(buff, binary.BigEndian, uint32(0)) //timeHigh
 	err = binary.Write(buff, binary.BigEndian, uint8(len(fileName)))
 	_, err = buff.Write([]byte(fileName))
-	err = binary.Write(buff, binary.BigEndian, uint32(adler32.Checksum(buff.Bytes())))
+	bytes := buff.Bytes()
+	err = binary.Write(buff, binary.BigEndian, uint32(adler32.Checksum(bytes[len(lzopMagic):])))
 
 	if err != nil {
 		return err
 	}
 
+	return nil
+}
+
+//WriteBytes Writes your bytes to a buffer via compression function
+func WriteBytes(buff *bytes.Buffer, data []byte, compressionFunction func([]byte) []byte) error {
 	blockSize := 256 * 1024
 
 	if len(data) < blockSize {
@@ -76,7 +86,7 @@ func writeData(buff *bytes.Buffer, fileTime int64, fileName string, data []byte,
 			compressed = unCompressed
 		}
 
-		err = binary.Write(buff, binary.BigEndian, uint32(len(unCompressed)))
+		err := binary.Write(buff, binary.BigEndian, uint32(len(unCompressed)))
 		err = binary.Write(buff, binary.BigEndian, uint32(len(compressed)))
 		err = binary.Write(buff, binary.BigEndian, uint32(adler32.Checksum(unCompressed)))
 
@@ -84,56 +94,63 @@ func writeData(buff *bytes.Buffer, fileTime int64, fileName string, data []byte,
 			return err
 		}
 
-		buff.Write(compressed)
+		_, err = buff.Write(compressed)
+
+		if err != nil {
+			return err
+		}
 	}
 
+	return nil
+}
+
+//WriteEnd writes the ending bytes of an lzop file
+func WriteEnd(buff *bytes.Buffer) error {
+	_, err := buff.Write(endBytes)
 	return err
 }
 
-//CompressData Will Compress your data expecting an LZO 1X1 compression.
-func CompressData(fileTime int64, fileName string, data []byte,
-	compressionFunction func([]byte) []byte) ([]byte, error) {
+//write data is a helper to just do all three (header/body/end)
+func writeData(buff *bytes.Buffer, fileTime int64, fileName string, data []byte,
+	compressionFunction func([]byte) []byte) error {
+
+	err := WriteHeader(buff, fileTime, fileName)
+
+	if err != nil {
+		return err
+	}
+
+	err = WriteBytes(buff, data, compressionFunction)
+
+	if err != nil {
+		return err
+	}
+
+	return WriteEnd(buff)
+}
+
+//CompressData Will Compress your data expecting an LZO 1X1 compression.  Creates buffer for you
+func CompressData(fileTime int64, fileName string, data []byte, compressionFunction func([]byte) []byte) ([]byte, error) {
 
 	buff := bytes.NewBuffer(make([]byte, 0, bytes.MinRead))
-
 	err := writeData(buff, fileTime, fileName, data, compressionFunction)
 
 	if err != nil {
 		return nil, err
 	}
 
-	end := bytes.NewBuffer(make([]byte, 0, bytes.MinRead))
-
-	err = binary.Write(end, binary.BigEndian, lzopMagic)
-	end.Write(buff.Bytes())
-	end.Write(endBytes)
-
-	return end.Bytes(), err
+	return buff.Bytes(), err
 }
 
-//CompressDataWithBuffers Allows you to specify the buffer to use for compression and ending output
-//this allows re-use
-func CompressDataWithBuffers(compressBuffer, endBuffer *bytes.Buffer, fileTime int64, fileName string, data []byte,
-	compressionFunction func([]byte) []byte) ([]byte, error) {
+//CompressDataWithBuffer Allows you to specify the buffer to use for compression allowing re-use
+func CompressDataWithBuffer(buff *bytes.Buffer, fileTime int64, fileName string, data []byte, compressionFunction func([]byte) []byte) ([]byte, error) {
 
-	compressBuffer.Reset()
-	endBuffer.Reset()
-
-	err := writeData(compressBuffer, fileTime, fileName, data, compressionFunction)
+	buff.Reset()
+	err := writeData(buff, fileTime, fileName, data, compressionFunction)
 
 	if err != nil {
 		return nil, err
 	}
 
-	err = binary.Write(endBuffer, binary.BigEndian, lzopMagic)
-	endBuffer.Write(compressBuffer.Bytes())
-	endBuffer.Write(endBytes)
-
-	return endBuffer.Bytes(), err
-}
-
-//GetAddedBufferLength Returns you the added byte size of characters
-//this is so you can pre-size the end buffer coming in and it wont resize
-func GetAddedBufferLength() int {
-	return len(lzopMagic) + len(endBytes)
+	return buff.Bytes(), err
 }

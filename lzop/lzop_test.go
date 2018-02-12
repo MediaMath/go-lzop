@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/dchest/uniuri"
-	"github.com/rasky/go-lzo"
+	lzo "github.com/rasky/go-lzo"
 )
 
 func init() {
@@ -25,7 +25,7 @@ func getData(size int) []byte {
 	return []byte(uniuri.NewLen(size))
 }
 
-func testData(input []byte, compressBuffer, endBuffer *bytes.Buffer) {
+func testData(input []byte, buff *bytes.Buffer) {
 
 	filename := uniuri.NewLen(10) + ".txt"
 	lzopFileName := filename + ".lzo"
@@ -36,12 +36,12 @@ func testData(input []byte, compressBuffer, endBuffer *bytes.Buffer) {
 	var data []byte
 	var err error
 
-	if compressBuffer == nil || endBuffer == nil {
+	if buff == nil {
 		data, err = CompressData(time.Now().Unix(), filename,
 			input,
 			lzo.Compress1X)
 	} else {
-		data, err = CompressDataWithBuffers(compressBuffer, endBuffer, time.Now().Unix(), filename,
+		data, err = CompressDataWithBuffer(buff, time.Now().Unix(), filename,
 			input,
 			lzo.Compress1X)
 	}
@@ -92,34 +92,32 @@ func testData(input []byte, compressBuffer, endBuffer *bytes.Buffer) {
 }
 
 func TestRandomDataSizes(t *testing.T) {
-	testData(getData(256), nil, nil)
-	testData(getData(512), nil, nil)
-	testData(getData(1024), nil, nil)
-	testData(getData(256*1024), nil, nil)
-	testData(getData(256*1024*2), nil, nil)
-	testData(getData(256*1024*4), nil, nil)
-	testData(getData(256*1024*8), nil, nil)
-	testData(getData(256*1024*16), nil, nil)
-	testData(getData(256*1024*32), nil, nil)
-	testData(getData(256*1024*64), nil, nil)
-	testData(getData(256*1024*128), nil, nil)
+	testData(getData(256), nil)
+	testData(getData(512), nil)
+	testData(getData(1024), nil)
+	testData(getData(256*1024), nil)
+	testData(getData(256*1024*2), nil)
+	testData(getData(256*1024*4), nil)
+	testData(getData(256*1024*8), nil)
+	testData(getData(256*1024*16), nil)
+	testData(getData(256*1024*32), nil)
+	testData(getData(256*1024*64), nil)
+	testData(getData(256*1024*128), nil)
 }
 
 func TestRandomDataSizesWithPreAllocatedBuffers(t *testing.T) {
 	b1 := bytes.NewBuffer(make([]byte, 0, 256*1024*128))
-	b2 := bytes.NewBuffer(make([]byte, 0, 256*1024*128))
-
-	testData(getData(256), b1, b2)
-	testData(getData(512), b1, b2)
-	testData(getData(1024), b1, b2)
-	testData(getData(256*1024), b1, b2)
-	testData(getData(256*1024*2), b1, b2)
-	testData(getData(256*1024*4), b1, b2)
-	testData(getData(256*1024*8), b1, b2)
-	testData(getData(256*1024*16), b1, b2)
-	testData(getData(256*1024*32), b1, b2)
-	testData(getData(256*1024*64), b1, b2)
-	testData(getData(256*1024*128), b1, b2)
+	testData(getData(256), b1)
+	testData(getData(512), b1)
+	testData(getData(1024), b1)
+	testData(getData(256*1024), b1)
+	testData(getData(256*1024*2), b1)
+	testData(getData(256*1024*4), b1)
+	testData(getData(256*1024*8), b1)
+	testData(getData(256*1024*16), b1)
+	testData(getData(256*1024*32), b1)
+	testData(getData(256*1024*64), b1)
+	testData(getData(256*1024*128), b1)
 }
 
 func BenchmarkAlloc(b *testing.B) {
@@ -136,13 +134,12 @@ func BenchmarkAlloc(b *testing.B) {
 
 func BenchmarkPreAlloc(b *testing.B) {
 	b1 := bytes.NewBuffer(make([]byte, 0, 256*1024*128))
-	b2 := bytes.NewBuffer(make([]byte, 0, 256*1024*128))
 	d := getData(256 * 1024 * 128)
 	now := time.Now().Unix()
 	fn := "file"
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		CompressDataWithBuffers(b1, b2, now, fn,
+		CompressDataWithBuffer(b1, now, fn,
 			d,
 			lzo.Compress1X)
 	}
